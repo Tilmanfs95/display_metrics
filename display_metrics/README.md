@@ -118,7 +118,7 @@ DisplayMetricsWidget(
 
 Please note:
 * `info` fields depend on the platform. On iOS it is `IosUnknownDisplayInfo` with the device model identifier (e.g. `iPhone20,1`). Currently only iOS reports unknown displays.
-* `info.resolution` is the resolution of the current display, so for an unknown foldable device you can pick the diagonal by it.
+* `info.resolution` is the resolution of the display the app is currently shown on (on iOS 13+ the screen of the foreground app scene), so for an unknown foldable device you can pick the diagonal by it.
 * The callback is called for every unknown display on every display metrics update, so it should be cheap and free of side effects.
 * If the callback returns `null` (or is not provided) during initial load, no data is available: `DisplayMetrics.maybeOf(context)` returns `null` and `DisplayMetrics.ensureInitialized(context)` completes with an error that names the device.
 * If the callback returns `null` after the display has changed (for example a foldable device was unfolded), `DisplayMetrics.of(context)` keeps returning **the previous display's data** and an error is logged.

@@ -30,19 +30,33 @@ public extension UIScreen {
     /// The iPhone Duo (foldable) switches between its inner and outer display, but `UIScreen.main`
     /// keeps reporting the outer one, so the screen of the foreground app scene is used there.
     /// It is only used if it is one of the iPhone Duo displays, so external displays never mix
-    /// with the diagonal from the device table. All other devices keep using `UIScreen.main`.
+    /// with the diagonal from the device table.
+    ///
+    /// Models missing from the device table (e.g. a new foldable) also use the scene's screen:
+    /// their diagonal comes from `onUnknownDisplay` in Dart, which needs the resolution of the
+    /// display that is actually active. All other devices keep using `UIScreen.main`.
     internal static var current: UIScreen {
-        if #available(iOS 13.0, *), UIDevice.modelIdentifier == "iPhone19,4" {
-            let scenes = UIApplication.shared.connectedScenes
-                .compactMap { $0 as? UIWindowScene }
-                .filter { $0.session.role == .windowApplication }
-            if let scene = scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first,
-               iPhoneDuoNativeLongSides.contains(scene.screen.nativeLongSide) {
-                return scene.screen
+        if #available(iOS 13.0, *), let screen = foregroundSceneScreen {
+            if UIDevice.modelIdentifier == "iPhone19,4" {
+                if iPhoneDuoNativeLongSides.contains(screen.nativeLongSide) { return screen }
+            } else if !isKnownModel {
+                return screen
             }
         }
         return main
     }
+
+    /// The screen of the foreground app scene, or of the first app scene if none is in foreground
+    @available(iOS 13.0, *)
+    private static var foregroundSceneScreen: UIScreen? {
+        let scenes = UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .filter { $0.session.role == .windowApplication }
+        return (scenes.first(where: { $0.activationState == .foregroundActive }) ?? scenes.first)?.screen
+    }
+
+    /// Whether the device model is in the device table
+    private static var isKnownModel: Bool { diagonal(on: main) != nil }
 
     /// Native long side in pixels of the iPhone Duo outer (1398x2034 px) and inner display
     /// (1878x2670 px per Apple specs, 2007x2853 px in the simulator; which one `nativeBounds`
@@ -55,7 +69,10 @@ public extension UIScreen {
     /// The screen dimension in inches
     ///
     /// Computed on every access, because foldable devices switch between displays of different sizes
-    static var diagonalInInches: CGFloat? {
+    static var diagonalInInches: CGFloat? { diagonal(on: current) }
+
+    /// The diagonal from the device table for this device model shown on `screen`
+    private static func diagonal(on screen: UIScreen) -> CGFloat? {
         switch UIDevice.modelIdentifier {
         case "iPhone4,1":                                                  // iPhone 4S
             return 3.5
@@ -197,7 +214,7 @@ public extension UIScreen {
         case "iPhone19,4":                                                 // iPhone Duo (foldable)
             // inner display: 7.6" (1878x2670 px per Apple specs, 2007x2853 px in the simulator),
             // outer display: 5.4" (1398x2034 px)
-            return current.nativeLongSide > 2034 ? 7.6 : 5.4
+            return screen.nativeLongSide > 2034 ? 7.6 : 5.4
 
         default:                                                           // unknown model identifier
             return .none
